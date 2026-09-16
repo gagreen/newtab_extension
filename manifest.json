@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "나만의 시작 페이지",
+  "version": "1.0.0",
+  "description": "검색, 바로가기, 할 일, 메모, 뉴스를 한 화면에 모은 새 탭 페이지",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "storage",
+    "topSites"
+  ],
+  "host_permissions": [
+    "https://news.google.com/*",
+    "https://factchat-cloud.mindlogic.ai/*"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
