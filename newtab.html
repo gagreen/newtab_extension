@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>시작 페이지</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <div class="page-toolbar">
+        <label class="dnd-toggle" title="모듈 드래그 정렬 켜기·끄기 (바로가기는 항상 정렬 가능)">
+          <input type="checkbox" id="dnd-toggle-input" />
+          <span class="dnd-toggle-track"
+            ><span class="dnd-toggle-thumb"></span
+          ></span>
+          <span class="dnd-toggle-text">설정</span>
+        </label>
+      </div>
+
+      <section class="modules" id="modules">
+        <div class="module-block module-shortcuts" data-module="shortcuts">
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="바로가기 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="shortcuts" id="shortcuts" aria-label="바로가기">
+            <!-- 바로가기 항목이 JS로 채워집니다 -->
+          </div>
+        </div>
+
+        <div class="module-block card card-todo" data-module="todo">
+          <button
+            type="button"
+            class="module-drag-handle"
+            aria-label="할 일 모듈 순서 변경"
+            title="드래그해서 순서 변경"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="할 일 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="card-head">
+            <h2>할 일</h2>
+            <span class="card-sub" id="todo-count"></span>
+          </div>
+          <form id="todo-form" class="inline-form">
+            <input
+              type="text"
+              id="todo-input"
+              placeholder="할 일 추가 후 Enter"
+            />
+          </form>
+          <ul class="todo-list" id="todo-list"></ul>
+        </div>
+
+        <div class="module-block card card-habit" data-module="habit">
+          <button
+            type="button"
+            class="module-drag-handle"
+            aria-label="습관 모듈 순서 변경"
+            title="드래그해서 순서 변경"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="습관 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="card-head">
+            <h2>습관</h2>
+            <span class="card-sub" id="habit-count"></span>
+          </div>
+          <form id="habit-form" class="inline-form">
+            <input
+              type="text"
+              id="habit-input"
+              placeholder="습관 추가 후 Enter"
+            />
+          </form>
+          <ul class="habit-list" id="habit-list"></ul>
+        </div>
+
+        <div class="module-block card card-news" data-module="news">
+          <button
+            type="button"
+            class="module-drag-handle"
+            aria-label="뉴스 모듈 순서 변경"
+            title="드래그해서 순서 변경"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="뉴스 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="card-head">
+            <h2>뉴스</h2>
+            <div class="card-head-actions">
+              <button
+                class="ghost-btn"
+                id="news-summarize"
+                aria-label="AI 요약"
+              >
+                AI 요약
+              </button>
+              <button
+                class="ghost-btn"
+                id="news-refresh"
+                aria-label="뉴스 새로고침"
+              >
+                새로고침
+              </button>
+            </div>
+          </div>
+          <div
+            class="news-topics"
+            id="news-topics"
+            aria-label="관심 분야"
+          ></div>
+          <div class="news-summary" id="news-summary" hidden></div>
+          <ul class="news-list" id="news-list">
+            <li class="news-loading">불러오는 중…</li>
+          </ul>
+        </div>
+
+        <div class="module-block card card-most-visited" data-module="mostVisited">
+          <button
+            type="button"
+            class="module-drag-handle"
+            aria-label="자주 방문 모듈 순서 변경"
+            title="드래그해서 순서 변경"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="자주 방문 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="card-head">
+            <h2>자주 방문</h2>
+            <span class="card-sub" id="most-visited-count"></span>
+          </div>
+          <ul class="most-visited-list" id="most-visited-list">
+            <li class="most-visited-loading">불러오는 중…</li>
+          </ul>
+        </div>
+
+        <div class="module-add-tile" id="module-add-tile" hidden>
+          <button type="button" class="module-add-btn" id="module-add-btn">
+            <span class="module-add-icon">+</span> 모듈 추가
+          </button>
+          <div class="module-add-menu" id="module-add-menu" hidden></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="shortcut-modal" id="shortcut-modal" hidden>
+      <form class="shortcut-form" id="shortcut-form">
+        <h3>바로가기 추가</h3>
+        <label
+          >이름
+          <input type="text" id="shortcut-name" required maxlength="20" />
+        </label>
+        <label
+          >주소
+          <input
+            type="url"
+            id="shortcut-url"
+            required
+            placeholder="https://example.com"
+          />
+        </label>
+        <div class="shortcut-form-actions">
+          <button type="button" id="shortcut-cancel">취소</button>
+          <button type="submit">추가</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="shortcut-modal" id="ai-key-modal" hidden>
+      <form class="shortcut-form" id="ai-key-form">
+        <h3>AI 요약 설정</h3>
+        <p class="ai-key-desc">
+          AI 요약을 사용하려면 동국 AI CHAT 서비스의 API Gateway 키가
+          필요합니다. 동국 AI CHAT 로그인 후 좌측 하단 "API Gateway" 메뉴에서
+          "API 키 생성"으로 발급받은 키를 입력하세요 (<a
+            href="https://docs.mindlogic.ai/docs/dongguk-edu/api-gateway/getting-started/overview"
+            target="_blank"
+            rel="noopener noreferrer"
+            >가이드</a
+          >). 키는 이 브라우저에만 저장됩니다.
+        </p>
+        <label
+          >API Gateway 키
+          <input
+            type="password"
+            id="ai-key-input"
+            required
+            placeholder="API 키"
+            autocomplete="off"
+          />
+        </label>
+        <div class="shortcut-form-actions">
+          <button type="button" id="ai-key-clear">키 삭제</button>
+          <button type="button" id="ai-key-cancel">취소</button>
+          <button type="submit">저장</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="shortcut-modal" id="habit-modal" hidden>
+      <div class="habit-detail">
+        <div class="habit-detail-head">
+          <h3 id="habit-detail-title"></h3>
+          <button type="button" id="habit-detail-close" aria-label="닫기">
+            ×
+          </button>
+        </div>
+        <p class="habit-detail-stats" id="habit-detail-streak"></p>
+        <div class="habit-detail-month-nav">
+          <button type="button" id="habit-prev-month" aria-label="이전 달">
+            ‹
+          </button>
+          <span id="habit-detail-month-label"></span>
+          <button type="button" id="habit-next-month" aria-label="다음 달">
+            ›
+          </button>
+        </div>
+        <div class="habit-heatmap" id="habit-heatmap"></div>
+      </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="settings.js"></script>
+    <script src="modules.js"></script>
+    <script src="notes.js"></script>
+    <script src="layout.js"></script>
+    <script src="shortcuts.js"></script>
+    <script src="todo.js"></script>
+    <script src="habit.js"></script>
+    <script src="news.js"></script>
+    <script src="mostvisited.js"></script>
+  </body>
+</html>
