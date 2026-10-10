@@ -2,16 +2,16 @@
   const PREF_KEY = "news_pref_topics";
   const CACHE_PREFIX = "news_cache:";
   const CACHE_MS = 15 * 60 * 1000; // 15분
-  const MAX_ITEMS = 8;
+  const MAX_ITEMS = 15;
 
-  const AI_KEY_STORAGE = "news_ai_dongguk_key";
+  const LEGACY_KEY_STORAGE = "news_ai_dongguk_key";
+  const KEYS_STORAGE = "news_ai_keys";
+  const PROVIDER_STORAGE = "news_ai_provider";
   const SUMMARY_CACHE_KEY = "news_ai_summary_cache";
-  const DONGGUK_MODEL = "claude-sonnet-5";
-  const DONGGUK_API_URL =
-    "https://factchat-cloud.mindlogic.ai/v1/gateway/claude/v1/messages/";
+  const USER_PROMPT = "오늘의 브리핑을 작성해줘.";
 
   const SUMMARY_SYSTEM_PROMPT = `당신은 20대 사회초년생을 위한 아침 뉴스 브리핑 어시스턴트입니다.
-반드시 web_search로 최근(대략 1주일 내) 한국 뉴스를 검색해 답하고, 기억이나 추정으로 답하지 마세요.
+반드시 웹 검색으로 최근(대략 4일 내) 한국 뉴스를 검색해 답하고, 기억이나 추정으로 답하지 마세요.
 웹 검색은 최대 5회까지 가능합니다. 카테고리마다 따로 검색하지 말고, 넓은 질의 1~2개로 여러 카테고리를 한 번에 다루도록 계획한 뒤 검색하세요.
 
 아래 4개 카테고리 순서대로 각 최대 3건, 중요도순으로 정리하세요:
@@ -53,6 +53,9 @@
   const keyInput = document.getElementById("ai-key-input");
   const keyCancelBtn = document.getElementById("ai-key-cancel");
   const keyClearBtn = document.getElementById("ai-key-clear");
+  const providerSelect = document.getElementById("ai-provider-select");
+  const keyLink = document.getElementById("ai-key-link");
+  const settingsBtn = document.getElementById("news-ai-settings");
 
   let selectedTopics = ["ALL"];
 
@@ -212,7 +215,10 @@
   }
 
   function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   function renderInline(line) {
@@ -272,9 +278,207 @@
     }
   }
 
-  function openKeyModal() {
-    keyModal.hidden = false;
+  // 응답 JSON을 읽고, 실패면 HTTP 상태를 담은 에러를 던집니다 (제공자마다 에러 형식이 달라 메시지만 추출).
+  async function readJson(res) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(
+        data.detail?.message || data.error?.message || "HTTP " + res.status,
+      );
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  // 검색 도구에 토큰을 다 쓰고 답변 전에 잘린 경우 — 성공으로 캐시되지 않도록 에러로 던집니다.
+  function truncatedError() {
+    const err = new Error("응답이 도중에 잘렸습니다.");
+    err.truncated = true;
+    return err;
+  }
+
+  function withSources(text, sources) {
+    const urls = [
+      ...new Map(sources.filter((s) => s.url).map((s) => [s.url, s])).values(),
+    ];
+    if (!urls.length) return text;
+    return (
+      text +
+      "\n\n참고 자료:\n" +
+      urls.map((s) => `- ${s.title || s.url} (${s.url})`).join("\n")
+    );
+  }
+
+  // Anthropic Messages 형식 (동국 AI CHAT 게이트웨이도 같은 형식).
+  // 기본 web_search(다이나믹 필터링 없음)가 이 작업에서 더 빠르고 저렴합니다(실측: 비용 1/5, 속도 2.7배).
+  async function callClaude(url, apiKey) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 4096,
+        system: SUMMARY_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: USER_PROMPT }],
+        tools: [
+          { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+        ],
+      }),
+      // 검색 도구 버전에 따라 게이트웨이가 응답 없이 멈추는 경우가 있어 타임아웃을 둡니다.
+      signal: AbortSignal.timeout(90000),
+    });
+    const data = await readJson(res);
+    const blocks = (data.content || []).filter((b) => b.type === "text");
+    const text = blocks
+      .map((b) => b.text || "")
+      .join("")
+      .trim();
+    if (!text && data.stop_reason === "max_tokens") throw truncatedError();
+    return withSources(
+      text,
+      blocks.flatMap((b) => b.citations || []),
+    );
+  }
+
+  async function callOpenAI(apiKey) {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        instructions: SUMMARY_SYSTEM_PROMPT,
+        input: USER_PROMPT,
+        tools: [{ type: "web_search" }],
+        reasoning: { effort: "low" },
+        max_output_tokens: 8000,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const data = await readJson(res);
+    const parts = (data.output || [])
+      .filter((o) => o.type === "message")
+      .flatMap((o) => o.content || [])
+      .filter((c) => c.type === "output_text");
+    const text = parts
+      .map((c) => c.text)
+      .join("")
+      .trim();
+    if (!text && data.incomplete_details?.reason === "max_output_tokens")
+      throw truncatedError();
+    return withSources(
+      text,
+      parts.flatMap((c) => c.annotations || []),
+    );
+  }
+
+  async function callGemini(apiKey) {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SUMMARY_SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: USER_PROMPT }] }],
+          tools: [{ google_search: {} }],
+        }),
+        signal: AbortSignal.timeout(90000),
+      },
+    );
+    let data;
+    try {
+      data = await readJson(res);
+    } catch (err) {
+      // Gemini는 잘못된 키를 401이 아니라 400으로 돌려줍니다.
+      if (err.status === 400 && /API key/i.test(err.message)) err.status = 401;
+      throw err;
+    }
+    const candidate = data.candidates?.[0];
+    const text = (candidate?.content?.parts || [])
+      .map((p) => p.text || "")
+      .join("")
+      .trim();
+    if (!text && candidate?.finishReason === "MAX_TOKENS")
+      throw truncatedError();
+    const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+    return withSources(
+      text,
+      chunks.map((c) => ({ url: c.web?.uri, title: c.web?.title })),
+    );
+  }
+
+  const AI_PROVIDERS = {
+    dongguk: {
+      label: "동국 AI CHAT",
+      origin: "https://factchat-cloud.mindlogic.ai/*",
+      keyUrl:
+        "https://docs.mindlogic.ai/docs/dongguk-edu/api-gateway/getting-started/overview",
+      call: (key) =>
+        callClaude(
+          "https://factchat-cloud.mindlogic.ai/v1/gateway/claude/v1/messages/",
+          key,
+        ),
+    },
+    anthropic: {
+      label: "Anthropic (Claude)",
+      origin: "https://api.anthropic.com/*",
+      keyUrl: "https://platform.claude.com/settings/keys",
+      call: (key) => callClaude("https://api.anthropic.com/v1/messages", key),
+    },
+    openai: {
+      label: "OpenAI",
+      origin: "https://api.openai.com/*",
+      keyUrl: "https://platform.openai.com/api-keys",
+      call: callOpenAI,
+    },
+    gemini: {
+      label: "Google Gemini",
+      origin: "https://generativelanguage.googleapis.com/*",
+      keyUrl: "https://aistudio.google.com/app/apikey",
+      call: callGemini,
+    },
+  };
+
+  async function getProvider() {
+    const id = await Store.get(PROVIDER_STORAGE, "dongguk");
+    return AI_PROVIDERS[id] ? id : "dongguk";
+  }
+
+  // 예전 버전은 동국 키 하나만 저장했으므로, 새 구조가 없으면 그 키를 가져옵니다.
+  async function getKeys() {
+    const keys = await Store.get(KEYS_STORAGE, null);
+    if (keys) return keys;
+    const legacy = await Store.get(LEGACY_KEY_STORAGE, "");
+    return legacy ? { dongguk: legacy } : {};
+  }
+
+  let savedKeys = {};
+
+  function showProvider(id) {
+    keyLink.href = AI_PROVIDERS[id].keyUrl;
     keyInput.value = "";
+    keyInput.placeholder = savedKeys[id]
+      ? "저장된 키 있음 (바꾸려면 입력)"
+      : "API 키";
+  }
+
+  async function openKeyModal() {
+    savedKeys = await getKeys();
+    providerSelect.value = await getProvider();
+    showProvider(providerSelect.value);
+    keyModal.hidden = false;
     keyInput.focus();
   }
 
@@ -282,73 +486,9 @@
     keyModal.hidden = true;
   }
 
-  // 동국 AI CHAT API Gateway를 통해 Claude의 네이티브 web_search 도구를 사용합니다.
-  // (Anthropic Messages API 형식 — system은 최상위 필드, tools에 web_search를 넣으면
-  // Claude가 필요하다고 판단할 때 서버 사이드에서 직접 검색을 수행합니다.)
-  async function callDongguk(apiKey) {
-    const res = await fetch(DONGGUK_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: DONGGUK_MODEL,
-        max_tokens: 4096,
-        system: SUMMARY_SYSTEM_PROMPT,
-        messages: [
-          { role: "user", content: "오늘의 브리핑을 작성해줘." },
-        ],
-        // 기본 web_search(다이나믹 필터링 없음)가 이 작업에서 더 빠르고 저렴하며
-        // 안정적으로 완결된 응답을 반환합니다(실측: 비용 1/5, 속도 2.7배).
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-      }),
-      // 검색 도구 버전에 따라 게이트웨이가 응답 없이 멈추는 경우가 있어 타임아웃을 둡니다.
-      signal: AbortSignal.timeout(90000),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      const err = new Error(data.detail?.message || "HTTP " + res.status);
-      err.status = data.detail?.code || res.status;
-      throw err;
-    }
-
-    const blocks = data.content || [];
-    let text = blocks
-      .filter((b) => b.type === "text")
-      .map((b) => b.text || "")
-      .join("")
-      .trim();
-
-    // 검색 도구 호출에 토큰을 다 쓰고 최종 답변 전에 잘린 경우, 재시도를 유도합니다
-    // (성공으로 취급해 캐시/버튼 숨김 처리되지 않도록 에러로 던집니다).
-    if (!text && data.stop_reason === "max_tokens") {
-      const err = new Error("응답이 도중에 잘렸습니다.");
-      err.truncated = true;
-      throw err;
-    }
-
-    const seen = new Set();
-    const sources = [];
-    blocks.forEach((b) => {
-      (b.citations || []).forEach((c) => {
-        if (!c.url || seen.has(c.url)) return;
-        seen.add(c.url);
-        sources.push(`- ${c.title || c.url} (${c.url})`);
-      });
-    });
-    if (sources.length) {
-      text += "\n\n참고 자료:\n" + sources.join("\n");
-    }
-
-    return text;
-  }
-
   async function summarizeNews() {
-    const apiKey = await Store.get(AI_KEY_STORAGE, "");
+    const id = await getProvider();
+    const apiKey = (await getKeys())[id];
     if (!apiKey) {
       openKeyModal();
       return;
@@ -356,7 +496,7 @@
 
     renderSummaryLoading();
     try {
-      const summary = await callDongguk(apiKey);
+      const summary = await AI_PROVIDERS[id].call(apiKey);
       if (summary) {
         renderSummary(summary);
         await Store.set(SUMMARY_CACHE_KEY, { date: todayStr(), text: summary });
@@ -398,19 +538,46 @@
     if (e.target === keyModal) closeKeyModal();
   });
 
+  providerSelect.append(
+    ...Object.entries(AI_PROVIDERS).map(([id, p]) => new Option(p.label, id)),
+  );
+  providerSelect.addEventListener("change", () =>
+    showProvider(providerSelect.value),
+  );
+  settingsBtn.addEventListener("click", openKeyModal);
+
   keyClearBtn.addEventListener("click", async () => {
-    await Store.set(AI_KEY_STORAGE, "");
+    delete savedKeys[providerSelect.value];
+    await Store.set(KEYS_STORAGE, savedKeys);
     closeKeyModal();
     hideSummary();
   });
 
   keyForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const key = keyInput.value.trim();
-    if (!key) return;
-    await Store.set(AI_KEY_STORAGE, key);
+    const id = providerSelect.value;
+    // 권한 요청은 클릭 직후, 다른 await보다 먼저 해야 사용자 제스처로 인정됩니다.
+    const granted = await chrome.permissions.request({
+      origins: [AI_PROVIDERS[id].origin],
+    });
+    if (!granted) {
+      closeKeyModal();
+      renderSummaryError(
+        `${AI_PROVIDERS[id].label} 접근 권한이 거부되었습니다.`,
+      );
+      return;
+    }
+    const key = keyInput.value.trim() || savedKeys[id];
+    if (!key) {
+      keyInput.focus();
+      return;
+    }
+    savedKeys[id] = key;
+    await Store.set(KEYS_STORAGE, savedKeys);
+    await Store.set(PROVIDER_STORAGE, id);
     closeKeyModal();
-    summarizeNews();
+    // 오늘 요약을 이미 받아 버튼이 숨겨진 상태면 새로 호출하지 않습니다 (하루 1회 정책).
+    if (!summarizeBtn.hidden) summarizeNews();
   });
 
   refreshBtn.addEventListener("click", fetchFeed);

@@ -22,8 +22,11 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
     "Noto Sans KR", sans-serif;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -226,6 +229,7 @@ body.dnd-disabled .module-hide {
 
 .module-block {
   position: relative;
+  min-width: 0;
 }
 
 .module-block[hidden] {
@@ -311,7 +315,9 @@ body.dnd-disabled .module-hide {
   position: relative;
   border: 1.5px dashed var(--border);
   border-radius: var(--radius-card);
+  min-width: 0;
   min-height: 220px;
+  max-height: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -388,8 +394,17 @@ body.dnd-disabled .module-hide {
   padding: 18px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-width: 0;
   min-height: 220px;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  max-height: 442px;
+  overflow-y: auto;
 }
 
 .card-todo,
@@ -527,11 +542,56 @@ body.dnd-disabled .module-hide {
 }
 
 .habit-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.88rem;
   animation: fade-in 0.15s ease;
+}
+
+.habit-row.dragging {
+  opacity: 0.4;
+}
+
+.habit-row.drag-over-before::before,
+.habit-row.drag-over-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.habit-row.drag-over-before::before {
+  top: -5px;
+}
+
+.habit-row.drag-over-after::after {
+  bottom: -5px;
+}
+
+.habit-drag-handle {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  cursor: grab;
+  font-size: 0.8rem;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  touch-action: none;
+}
+
+.habit-row:hover .habit-drag-handle {
+  opacity: 1;
+}
+
+.habit-drag-handle:active {
+  cursor: grabbing;
 }
 
 .habit-row input[type="checkbox"] {
@@ -702,9 +762,9 @@ body.dnd-disabled .module-hide {
   background: transparent;
   resize: none;
   outline: none;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 28px;
-  font-family: Georgia, "Apple SD Gothic Neo", serif;
+  font-family: "Hahmlet", Georgia, "Apple SD Gothic Neo", serif;
   color: var(--ink);
 }
 
@@ -737,7 +797,10 @@ body.dnd-disabled .module-hide {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .news-topic-chip:hover {
@@ -920,7 +983,9 @@ body.dnd-disabled .module-hide {
   line-height: 1;
   padding: 2px 4px;
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -934,6 +999,81 @@ body.dnd-disabled .module-hide {
 
 .most-visited-empty,
 .most-visited-loading {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  padding: 8px 0;
+}
+
+/* ---------- Reading list ---------- */
+.reading-list-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 220px;
+}
+
+.reading-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  animation: fade-in 0.15s ease;
+}
+
+.reading-list-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.reading-list-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.reading-list-link:hover {
+  color: var(--accent);
+}
+
+.reading-list-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.reading-list-favicon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.reading-list-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-list-empty,
+.reading-list-loading {
   font-size: 0.82rem;
   color: var(--ink-soft);
   padding: 8px 0;
@@ -976,7 +1116,8 @@ body.dnd-disabled .module-hide {
   color: var(--ink-soft);
 }
 
-.shortcut-form input {
+.shortcut-form input,
+.shortcut-form select {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -984,7 +1125,8 @@ body.dnd-disabled .module-hide {
   outline: none;
 }
 
-.shortcut-form input:focus {
+.shortcut-form input:focus,
+.shortcut-form select:focus {
   border-color: var(--accent);
 }
 

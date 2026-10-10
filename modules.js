@@ -35,6 +35,11 @@ const MODULE_DEFS = {
     desc: "자주 방문한 사이트를 추천합니다",
     icon: "⭐",
   },
+  readingList: {
+    name: "읽기 목록",
+    desc: "Chrome 읽기 목록의 안 읽은 항목을 보여줍니다",
+    icon: "📖",
+  },
 };
 
 const DEFAULT_MODULE_CONFIG = [
@@ -44,6 +49,7 @@ const DEFAULT_MODULE_CONFIG = [
   { id: "notes:default", enabled: true },
   { id: "news", enabled: true },
   { id: "mostVisited", enabled: false },
+  { id: "readingList", enabled: false },
 ];
 
 // "notes:abc123"처럼 인스턴스 id가 붙은 모듈에서 기본 모듈 타입("notes")을 추출합니다.

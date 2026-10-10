@@ -62,6 +62,102 @@
     countEl.textContent = habits.length ? `${habits.length}개` : "";
   }
 
+  // ---- 습관 항목 순서 변경 (shortcuts.js와 동일한 포인터 기반 드래그 방식) ----
+
+  function habitRowEls() {
+    return Array.from(listEl.querySelectorAll(".habit-row"));
+  }
+
+  function clearDragIndicators() {
+    habitRowEls().forEach((el) =>
+      el.classList.remove("drag-over-before", "drag-over-after")
+    );
+  }
+
+  // 커서 y좌표에서 가장 가까운 habit-row와, 그 위/아래 중 어디에 놓일지 계산
+  function getDropTarget(y, excludeEl) {
+    const items = habitRowEls().filter((el) => el !== excludeEl);
+    let closestEl = null;
+    let closestDist = Infinity;
+    let insertAfter = false;
+
+    items.forEach((el) => {
+      const box = el.getBoundingClientRect();
+      const cy = box.top + box.height / 2;
+      const dist = Math.abs(y - cy);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestEl = el;
+        insertAfter = y > cy;
+      }
+    });
+
+    return { items, closestEl, insertAfter };
+  }
+
+  function bindDragHandle(handle, li, habit) {
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+
+      const startY = e.clientY;
+      let moved = false;
+
+      const onMove = (ev) => {
+        const dy = ev.clientY - startY;
+
+        if (!moved) {
+          if (Math.abs(dy) < 4) return;
+          moved = true;
+          li.classList.add("dragging");
+          li.style.zIndex = "5";
+          li.style.pointerEvents = "none";
+        }
+
+        li.style.transform = `translateY(${dy}px)`;
+        clearDragIndicators();
+        const { closestEl, insertAfter } = getDropTarget(ev.clientY, li);
+        if (closestEl) {
+          closestEl.classList.add(
+            insertAfter ? "drag-over-after" : "drag-over-before"
+          );
+        }
+      };
+
+      const onUp = async (ev) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+
+        li.style.transform = "";
+        li.style.zIndex = "";
+        li.style.pointerEvents = "";
+        li.classList.remove("dragging");
+        clearDragIndicators();
+
+        if (!moved) return;
+
+        const { items, closestEl, insertAfter } = getDropTarget(
+          ev.clientY,
+          li
+        );
+        const dropIndex = closestEl
+          ? items.indexOf(closestEl) + (insertAfter ? 1 : 0)
+          : items.length;
+
+        const fromIdx = habits.findIndex((h) => h.id === habit.id);
+        if (fromIdx === -1) return;
+        const [movedHabit] = habits.splice(fromIdx, 1);
+        habits.splice(dropIndex, 0, movedHabit);
+        await persist();
+        render();
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    });
+  }
+
   function render() {
     listEl.innerHTML = "";
 
@@ -79,6 +175,14 @@
     habits.forEach((habit) => {
       const li = document.createElement("li");
       li.className = "habit-row";
+
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = "habit-drag-handle";
+      handle.setAttribute("aria-label", "습관 순서 변경");
+      handle.title = "드래그해서 순서 변경";
+      handle.textContent = "⠿";
+      bindDragHandle(handle, li, habit);
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -123,6 +227,7 @@
         render();
       });
 
+      li.appendChild(handle);
       li.appendChild(checkbox);
       li.appendChild(name);
       li.appendChild(dots);

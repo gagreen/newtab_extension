@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <title>시작 페이지</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600&display=swap"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -49,18 +55,20 @@
           >
             ×
           </button>
-          <div class="card-head">
-            <h2>할 일</h2>
-            <span class="card-sub" id="todo-count"></span>
+          <div class="card-body">
+            <div class="card-head">
+              <h2>할 일</h2>
+              <span class="card-sub" id="todo-count"></span>
+            </div>
+            <form id="todo-form" class="inline-form">
+              <input
+                type="text"
+                id="todo-input"
+                placeholder="할 일 추가 후 Enter"
+              />
+            </form>
+            <ul class="todo-list" id="todo-list"></ul>
           </div>
-          <form id="todo-form" class="inline-form">
-            <input
-              type="text"
-              id="todo-input"
-              placeholder="할 일 추가 후 Enter"
-            />
-          </form>
-          <ul class="todo-list" id="todo-list"></ul>
         </div>
 
         <div class="module-block card card-habit" data-module="habit">
@@ -80,18 +88,20 @@
           >
             ×
           </button>
-          <div class="card-head">
-            <h2>습관</h2>
-            <span class="card-sub" id="habit-count"></span>
+          <div class="card-body">
+            <div class="card-head">
+              <h2>습관</h2>
+              <span class="card-sub" id="habit-count"></span>
+            </div>
+            <form id="habit-form" class="inline-form">
+              <input
+                type="text"
+                id="habit-input"
+                placeholder="습관 추가 후 Enter"
+              />
+            </form>
+            <ul class="habit-list" id="habit-list"></ul>
           </div>
-          <form id="habit-form" class="inline-form">
-            <input
-              type="text"
-              id="habit-input"
-              placeholder="습관 추가 후 Enter"
-            />
-          </form>
-          <ul class="habit-list" id="habit-list"></ul>
         </div>
 
         <div class="module-block card card-news" data-module="news">
@@ -111,34 +121,44 @@
           >
             ×
           </button>
-          <div class="card-head">
-            <h2>뉴스</h2>
-            <div class="card-head-actions">
-              <button
-                class="ghost-btn"
-                id="news-summarize"
-                aria-label="AI 요약"
-              >
-                AI 요약
-              </button>
-              <button
-                class="ghost-btn"
-                id="news-refresh"
-                aria-label="뉴스 새로고침"
-              >
-                새로고침
-              </button>
+          <div class="card-body">
+            <div class="card-head">
+              <h2>뉴스</h2>
+              <div class="card-head-actions">
+                <button
+                  class="ghost-btn"
+                  id="news-summarize"
+                  aria-label="AI 요약"
+                >
+                  AI 요약
+                </button>
+                <button
+                  class="ghost-btn"
+                  id="news-ai-settings"
+                  aria-label="AI 요약 설정"
+                  title="AI 요약 설정"
+                >
+                  ⚙
+                </button>
+                <button
+                  class="ghost-btn"
+                  id="news-refresh"
+                  aria-label="뉴스 새로고침"
+                >
+                  새로고침
+                </button>
+              </div>
             </div>
+            <div
+              class="news-topics"
+              id="news-topics"
+              aria-label="관심 분야"
+            ></div>
+            <div class="news-summary" id="news-summary" hidden></div>
+            <ul class="news-list" id="news-list">
+              <li class="news-loading">불러오는 중…</li>
+            </ul>
           </div>
-          <div
-            class="news-topics"
-            id="news-topics"
-            aria-label="관심 분야"
-          ></div>
-          <div class="news-summary" id="news-summary" hidden></div>
-          <ul class="news-list" id="news-list">
-            <li class="news-loading">불러오는 중…</li>
-          </ul>
         </div>
 
         <div class="module-block card card-most-visited" data-module="mostVisited">
@@ -158,13 +178,43 @@
           >
             ×
           </button>
-          <div class="card-head">
-            <h2>자주 방문</h2>
-            <span class="card-sub" id="most-visited-count"></span>
+          <div class="card-body">
+            <div class="card-head">
+              <h2>자주 방문</h2>
+              <span class="card-sub" id="most-visited-count"></span>
+            </div>
+            <ul class="most-visited-list" id="most-visited-list">
+              <li class="most-visited-loading">불러오는 중…</li>
+            </ul>
           </div>
-          <ul class="most-visited-list" id="most-visited-list">
-            <li class="most-visited-loading">불러오는 중…</li>
-          </ul>
+        </div>
+
+        <div class="module-block card card-reading-list" data-module="readingList">
+          <button
+            type="button"
+            class="module-drag-handle"
+            aria-label="읽기 목록 모듈 순서 변경"
+            title="드래그해서 순서 변경"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            class="module-hide"
+            aria-label="읽기 목록 모듈 숨기기"
+            title="모듈 숨기기"
+          >
+            ×
+          </button>
+          <div class="card-body">
+            <div class="card-head">
+              <h2>읽기 목록</h2>
+              <span class="card-sub" id="reading-list-count"></span>
+            </div>
+            <ul class="reading-list-list" id="reading-list-list">
+              <li class="reading-list-loading">불러오는 중…</li>
+            </ul>
+          </div>
         </div>
 
         <div class="module-add-tile" id="module-add-tile" hidden>
@@ -202,23 +252,23 @@
     <div class="shortcut-modal" id="ai-key-modal" hidden>
       <form class="shortcut-form" id="ai-key-form">
         <h3>AI 요약 설정</h3>
+        <label
+          >AI 제공자
+          <select id="ai-provider-select"></select>
+        </label>
         <p class="ai-key-desc">
-          AI 요약을 사용하려면 동국 AI CHAT 서비스의 API Gateway 키가
-          필요합니다. 동국 AI CHAT 로그인 후 좌측 하단 "API Gateway" 메뉴에서
-          "API 키 생성"으로 발급받은 키를 입력하세요 (<a
-            href="https://docs.mindlogic.ai/docs/dongguk-edu/api-gateway/getting-started/overview"
+          선택한 제공자의 API 키를 입력하세요 (<a
+            id="ai-key-link"
             target="_blank"
             rel="noopener noreferrer"
-            >가이드</a
+            >키 발급 안내</a
           >). 키는 이 브라우저에만 저장됩니다.
         </p>
         <label
-          >API Gateway 키
+          >API 키
           <input
             type="password"
             id="ai-key-input"
-            required
-            placeholder="API 키"
             autocomplete="off"
           />
         </label>
@@ -262,5 +312,6 @@
     <script src="habit.js"></script>
     <script src="news.js"></script>
     <script src="mostvisited.js"></script>
+    <script src="readinglist.js"></script>
   </body>
 </html>
