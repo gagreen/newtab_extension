@@ -7,6 +7,17 @@
   const addBtn = document.getElementById("module-add-btn");
   const addMenu = document.getElementById("module-add-menu");
 
+  // 그리드 단위 (style.css의 .modules/.module-block과 맞출 것).
+  // 폭은 기본 DEFAULT_W·최소 MIN_W, 높이는 기본이 카드의 자연 높이(내용 높이)이고 최소는 MIN_H입니다.
+  const COLS = 12;
+  const ROW_PX = 8;
+  const GAP = 18;
+  const DEFAULT_W = 4;
+  const MIN_W = 1;
+  const MIN_H = 3; // 카드 높이 약 6px (span 3 × 8px − margin 18px)
+  const MAX_H = 200;
+  const KEY_STEP_H = 5;
+
   let config = [];
   let draggedId = null;
   let allowDrag = false;
@@ -63,11 +74,101 @@
       if (entry.enabled) {
         el.hidden = false;
         el.style.order = idx;
+        applySize(el, entry);
       } else {
         el.hidden = true;
       }
     });
     renderAddMenu();
+  }
+
+  function spanFor(px) {
+    return Math.ceil((px + GAP) / ROW_PX);
+  }
+
+  // .sized를 잠시 떼고 내용 기준 높이를 잽니다 (같은 프레임 안이라 깜빡이지 않음)
+  function naturalSpan(el) {
+    const sized = el.classList.contains("sized");
+    el.classList.remove("sized");
+    const span = spanFor(el.offsetHeight);
+    if (sized) el.classList.add("sized");
+    return span;
+  }
+
+  // h가 없으면 내용 높이를 따르는 자동 높이 카드로 둡니다.
+  function applySize(el, entry) {
+    if (entry.id === "shortcuts") return;
+    el.style.gridColumn = `span ${entry.w || DEFAULT_W}`;
+    const sized = !!entry.h;
+    el.classList.toggle("sized", sized);
+    el.style.gridRow = `span ${sized ? entry.h : naturalSpan(el)}`;
+  }
+
+  // 자동 높이 카드는 내용이 바뀌면(뉴스 로딩, 할 일 추가 등) 행 span을 다시 맞춥니다.
+  // align-items: start라 span 변경이 카드 높이에 영향을 주지 않으므로 루프가 생기지 않습니다.
+  const autoHeight = new ResizeObserver((entries) => {
+    entries.forEach(({ target }) => {
+      if (target.hidden || target.classList.contains("sized")) return;
+      target.style.gridRow = `span ${spanFor(target.offsetHeight)}`;
+    });
+  });
+
+  // 오른쪽 아래 핸들을 드래그(또는 방향키)해서 카드의 열/행 span을 조절합니다.
+  function setupResize(el, id) {
+    const grip = document.createElement("button");
+    grip.type = "button";
+    grip.className = "module-resize";
+    grip.setAttribute("aria-label", "모듈 크기 조절 (방향키)");
+    grip.title = "드래그해서 크기 조절";
+    el.appendChild(grip);
+
+    function setSize(w, h) {
+      const entry = config.find((m) => m.id === id);
+      if (!entry) return;
+      entry.w = Math.min(COLS, Math.max(MIN_W, w));
+      entry.h = Math.min(MAX_H, Math.max(MIN_H, h));
+      applySize(el, entry);
+    }
+
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      const rect = el.getBoundingClientRect();
+      const gap = parseFloat(getComputedStyle(container).columnGap) || 0;
+      const colW = (container.clientWidth - gap * (COLS - 1)) / COLS;
+      const onMove = (ev) => {
+        setSize(
+          Math.round((ev.clientX - rect.left + gap) / (colW + gap)),
+          spanFor(ev.clientY - rect.top)
+        );
+      };
+      const onUp = () => {
+        grip.removeEventListener("pointermove", onMove);
+        grip.removeEventListener("pointerup", onUp);
+        grip.removeEventListener("pointercancel", onUp);
+        persist();
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", onUp);
+      grip.addEventListener("pointercancel", onUp);
+    });
+
+    grip.addEventListener("keydown", (e) => {
+      const entry = config.find((m) => m.id === id);
+      if (!entry) return;
+      const w = entry.w || DEFAULT_W;
+      const h = entry.h || naturalSpan(el);
+      const next = {
+        ArrowRight: [w + 1, h],
+        ArrowLeft: [w - 1, h],
+        ArrowDown: [w, h + KEY_STEP_H],
+        ArrowUp: [w, h - KEY_STEP_H],
+      }[e.key];
+      if (!next) return;
+      e.preventDefault();
+      setSize(...next);
+      persist();
+    });
   }
 
   async function persist() {
@@ -139,6 +240,10 @@
     const fixed = id === "shortcuts";
 
     el.draggable = !fixed && dndEnabled;
+    if (!fixed) {
+      setupResize(el, id);
+      autoHeight.observe(el);
+    }
 
     if (handle && !fixed) {
       handle.addEventListener("mousedown", () => {

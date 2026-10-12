@@ -85,7 +85,7 @@ async function getModuleConfig() {
       await Store.remove("note");
       merged.push({ id: newId, enabled: true });
     } else if (MODULE_DEFS[moduleBaseId(m.id)]) {
-      merged.push({ id: m.id, enabled: !!m.enabled });
+      merged.push({ id: m.id, enabled: !!m.enabled, w: m.w, h: m.h });
     }
   }
 
