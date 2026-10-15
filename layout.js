@@ -193,6 +193,57 @@
     persist();
   }
 
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+  // 카드 중심을 + 버튼 중심으로 옮기며 작아지는 키프레임 (보관/복원 공용)
+  function fabKeyframe(el) {
+    const a = el.getBoundingClientRect();
+    const b = addBtn.getBoundingClientRect();
+    const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+    const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+    return { transform: `translate(${dx}px, ${dy}px) scale(0.05)`, opacity: 0 };
+  }
+
+  // 메모를 + 버튼으로 빨려 들어가게 한 뒤 숨깁니다.
+  async function archiveNote(el, id) {
+    if (!reduceMotion.matches) {
+      el.style.zIndex = 10;
+      el.style.pointerEvents = "none";
+      const anim = el.animate([{ transform: "none", opacity: 1 }, fabKeyframe(el)], {
+        duration: 350,
+        easing: "cubic-bezier(0.55, 0, 0.75, 0.2)",
+        fill: "forwards",
+      });
+      await anim.finished;
+      setEnabled(id, false);
+      anim.cancel(); // 숨긴 뒤에 해제해야 원래 자리에 한 프레임 깜빡이지 않습니다
+      el.style.zIndex = "";
+      el.style.pointerEvents = "";
+      addBtn.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.2)" }, { transform: "scale(1)" }],
+        { duration: 250, easing: "ease-out" }
+      );
+      return;
+    }
+    setEnabled(id, false);
+  }
+
+  // 보관된 메모를 다시 켜고, + 버튼에서 최종 위치로 튀어나오게 합니다.
+  function restoreNote(id) {
+    setEnabled(id, true);
+    const el = container.querySelector(`[data-module="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "nearest" }); // 맨 뒤에 붙으므로 화면 밖일 수 있음
+    if (reduceMotion.matches) return;
+    el.style.zIndex = 10;
+    el.animate([fabKeyframe(el), { transform: "none", opacity: 1 }], {
+      duration: 350,
+      easing: "cubic-bezier(0.25, 0.8, 0.45, 1)",
+    }).finished.then(() => {
+      el.style.zIndex = "";
+    });
+  }
+
   // shortcuts는 고정 모듈이라 reorder 대상에서 제외하고, 항상 맨 앞에 유지합니다.
   function reorder(dropIndexAmongVisible) {
     const shortcutsEntry = config.find((m) => m.id === "shortcuts");
@@ -237,6 +288,7 @@
     const id = el.dataset.module;
     const handle = el.querySelector(".module-drag-handle");
     const hideBtn = el.querySelector(".module-hide");
+    const minimizeBtn = el.querySelector(".module-minimize");
     const fixed = id === "shortcuts";
 
     el.draggable = !fixed && dndEnabled;
@@ -278,6 +330,11 @@
       draggedId = null;
       allowDrag = false;
     });
+
+    // 메모 보관: 내용은 남기고 숨겨서 + 메뉴의 "보관된 메모"에서 다시 엽니다.
+    if (minimizeBtn) {
+      minimizeBtn.addEventListener("click", () => archiveNote(el, id));
+    }
 
     hideBtn.addEventListener("click", () => {
       if (isMultiInstance(id)) {
@@ -332,8 +389,9 @@
       addMenu.appendChild(item);
     });
 
-    // 메모는 숨기기/보이기가 아니라 항상 새 인스턴스를 추가하는 방식입니다.
     const notesDef = MODULE_DEFS.notes;
+    // 메모는 숨기기/보이기가 아니라 항상 새 인스턴스를 추가하는 방식입니다.
+    // "보관된 메모" 섹션보다 먼저 넣어야 보관 목록의 일부로 보이지 않습니다.
     const addNotesItem = document.createElement("button");
     addNotesItem.type = "button";
     addNotesItem.className = "module-add-option";
@@ -343,6 +401,29 @@
       addMenu.hidden = true;
     });
     addMenu.appendChild(addNotesItem);
+
+    const archived = config.filter((m) => !m.enabled && isMultiInstance(m.id));
+    if (archived.length) {
+      const label = document.createElement("div");
+      label.className = "module-add-label";
+      label.textContent = "보관된 메모";
+      addMenu.appendChild(label);
+    }
+    archived.forEach((entry) => {
+      const card = container.querySelector(`[data-module="${CSS.escape(entry.id)}"]`);
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "module-add-option";
+      item.innerHTML = `<span class="module-add-icon">${notesDef.icon}</span><span class="module-add-name"></span>`;
+      // 제목은 사용자 입력이므로 textContent로만 넣습니다.
+      item.querySelector(".module-add-name").textContent =
+        card?.querySelector(".note-title")?.textContent.trim() || notesDef.name;
+      item.addEventListener("click", () => {
+        restoreNote(entry.id);
+        addMenu.hidden = true;
+      });
+      addMenu.appendChild(item);
+    });
 
     addTile.hidden = false;
   }

@@ -109,6 +109,7 @@ body {
 /* 드래그앤드롭이 꺼져 있으면 모듈 드래그 핸들을 숨깁니다 (바로가기는 항상 정렬 가능) */
 body.dnd-disabled .module-drag-handle,
 body.dnd-disabled .module-hide,
+body.dnd-disabled .module-minimize,
 body.dnd-disabled .module-resize {
   display: none !important;
 }
@@ -296,7 +297,8 @@ body.dnd-disabled .module-resize {
 }
 
 .module-drag-handle,
-.module-hide {
+.module-hide,
+.module-minimize {
   position: absolute;
   top: -10px;
   width: 22px;
@@ -315,8 +317,15 @@ body.dnd-disabled .module-resize {
 }
 
 .module-block:hover .module-drag-handle,
-.module-block:hover .module-hide {
+.module-block:hover .module-hide,
+.module-block:hover .module-minimize,
+.module-minimize:focus-visible {
   display: flex;
+}
+
+.module-minimize {
+  right: 38px;
+  color: var(--ink-soft);
 }
 
 /* 바로가기 모듈은 항상 고정 노출되는 모듈이므로 숨기기(×) 버튼을 표시하지 않습니다 */
@@ -444,6 +453,24 @@ body.dnd-disabled .module-resize {
 
 .module-add-option:hover {
   background: var(--bg);
+}
+
+.module-add-label {
+  padding: 6px 10px 2px;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.module-add-label:not(:first-child) {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.module-add-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card {

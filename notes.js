@@ -17,6 +17,12 @@
       >⠿</button>
       <button
         type="button"
+        class="module-minimize"
+        aria-label="메모 보관"
+        title="보관 (오른쪽 아래 + 메뉴에서 다시 열기)"
+      >–</button>
+      <button
+        type="button"
         class="module-hide"
         aria-label="메모 삭제"
         title="메모 삭제"
